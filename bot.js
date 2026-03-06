@@ -1,9 +1,4 @@
 const TelegramBot = require("node-telegram-bot-api");
-const express = require("express");
-const cors = require("cors");
-
-const app = express();
-app.use(cors());
 
 const token = process.env.BOT_TOKEN;
 const channel = "@IMBASQUAD812";
@@ -15,25 +10,10 @@ async function isSubscribed(userId) {
   try {
     const member = await bot.getChatMember(channel, userId);
     return ["member", "administrator", "creator"].includes(member.status);
-  } catch (error) {
+  } catch {
     return false;
   }
 }
-
-app.get("/", (req, res) => {
-  res.send("Bot is running");
-});
-
-app.get("/check-subscription", async (req, res) => {
-  const userId = req.query.user_id;
-
-  if (!userId) {
-    return res.status(400).json({ subscribed: false, error: "user_id is required" });
-  }
-
-  const subscribed = await isSubscribed(userId);
-  return res.json({ subscribed });
-});
 
 bot.onText(/\/start/, async (msg) => {
   const userId = msg.from.id;
@@ -42,12 +22,12 @@ bot.onText(/\/start/, async (msg) => {
   const subscribed = await isSubscribed(userId);
 
   if (subscribed) {
-    await bot.sendMessage(chatId, "✅ Подписка подтверждена. Открывай мини-апп:", {
+    bot.sendMessage(chatId, "✅ Подписка подтверждена", {
       reply_markup: {
         inline_keyboard: [
           [
             {
-              text: "🚀 Открыть мини-апп",
+              text: "PLAY SKATE",
               web_app: { url: miniAppUrl }
             }
           ]
@@ -55,11 +35,21 @@ bot.onText(/\/start/, async (msg) => {
       }
     });
   } else {
-    await bot.sendMessage(chatId, "🔒 Чтобы пользоваться ботом, подпишись на канал IMBASQUAD:", {
+    bot.sendMessage(chatId, "Подпишись на канал:", {
       reply_markup: {
         inline_keyboard: [
-          [{ text: "📢 Подписаться на канал", url: "https://t.me/IMBASQUAD812" }],
-          [{ text: "🔄 Проверить подписку", callback_data: "check_sub" }]
+          [
+            {
+              text: "Подписаться",
+              url: "https://t.me/IMBASQUAD812"
+            }
+          ],
+          [
+            {
+              text: "Проверить подписку",
+              callback_data: "check"
+            }
+          ]
         ]
       }
     });
@@ -67,35 +57,25 @@ bot.onText(/\/start/, async (msg) => {
 });
 
 bot.on("callback_query", async (query) => {
-  const chatId = query.message.chat.id;
   const userId = query.from.id;
+  const chatId = query.message.chat.id;
 
-  if (query.data === "check_sub") {
-    await bot.answerCallbackQuery(query.id, { text: "Проверяю подписку..." });
+  const subscribed = await isSubscribed(userId);
 
-    const subscribed = await isSubscribed(userId);
-
-    if (subscribed) {
-      await bot.sendMessage(chatId, "✅ Подписка подтверждена. Открывай мини-апп:", {
-        reply_markup: {
-          inline_keyboard: [
-            [
-              {
-                text: "🚀 Открыть мини-апп",
-                web_app: { url: miniAppUrl }
-              }
-            ]
+  if (subscribed) {
+    bot.sendMessage(chatId, "✅ Подписка подтверждена", {
+      reply_markup: {
+        inline_keyboard: [
+          [
+            {
+              text: "PLAY SKATE",
+              web_app: { url: miniAppUrl }
+            }
           ]
-        }
-      });
-    } else {
-      await bot.sendMessage(chatId, "❌ Подписка пока не найдена. Подпишись и попробуй снова.");
-    }
+        ]
+      }
+    });
+  } else {
+    bot.sendMessage(chatId, "❌ Ты ещё не подписан");
   }
-});
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-  console.log("Бот запущен");
 });
