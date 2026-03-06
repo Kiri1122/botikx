@@ -1,6 +1,6 @@
 const TelegramBot = require("node-telegram-bot-api");
 
-const token = "8749270172:AAEgapTSI-p7Wl_nxogmKIfUcNMPiXBTfqY";
+const token = process.env.BOT_TOKEN;";
 const channelUsername = "@IMBASQUAD812";
 const miniAppUrl = "https://splendid-narwhal-222293.netlify.app";
 
@@ -77,5 +77,6 @@ bot.on("callback_query", async (query) => {
     await sendAccessMessage(chatId, userId);
   }
 });
+
 
 console.log("Бот запущен...");
