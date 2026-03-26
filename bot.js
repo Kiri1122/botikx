@@ -18,36 +18,36 @@ if (!token) {
 const bot = new TelegramBot(token, { polling: true });
 
 bot.on("polling_error", (err) => {
-  console.error("Polling error:", err?.message || err);
+  console.error("Polling error:", err?.response?.body || err?.message || err);
 });
 
 bot.on("error", (err) => {
-  console.error("Bot error:", err?.message || err);
+  console.error("Bot error:", err?.response?.body || err?.message || err);
 });
-
-function withTimeout(promise, ms) {
-  return Promise.race([
-    promise,
-    new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("Timeout after " + ms + "ms")), ms)
-    )
-  ]);
-}
 
 async function isSubscribed(userId) {
   try {
-    console.log("Checking subscription for user:", userId);
+    const numericUserId = Number(userId);
 
-    const member = await withTimeout(
-      bot.getChatMember(channel, Number(userId)),
-      6000
-    );
+    if (!numericUserId) {
+      console.error("Некорректный userId:", userId);
+      return false;
+    }
 
-    console.log("Telegram member status for", userId, "=", member.status);
+    console.log("Checking subscription for user:", numericUserId);
+
+    const member = await bot.getChatMember(channel, numericUserId);
+
+    console.log("Telegram member status for", numericUserId, "=", member.status);
 
     return ["member", "administrator", "creator"].includes(member.status);
   } catch (err) {
-    console.error("isSubscribed error for user", userId, ":", err?.message || err);
+    console.error(
+      "isSubscribed error for user",
+      userId,
+      ":",
+      err?.response?.body || err?.message || err
+    );
     return false;
   }
 }
@@ -69,13 +69,16 @@ app.get("/check-subscription", async (req, res) => {
   console.log("Incoming /check-subscription for user:", userId);
 
   try {
-    const subscribed = await withTimeout(isSubscribed(userId), 7000);
+    const subscribed = await isSubscribed(userId);
 
     return res.json({
       subscribed
     });
   } catch (err) {
-    console.error("/check-subscription route error:", err?.message || err);
+    console.error(
+      "/check-subscription route error:",
+      err?.response?.body || err?.message || err
+    );
 
     return res.status(500).json({
       subscribed: false,
@@ -88,40 +91,46 @@ bot.onText(/\/start/, async (msg) => {
   const userId = msg.from.id;
   const chatId = msg.chat.id;
 
-  const subscribed = await isSubscribed(userId);
+  try {
+    const subscribed = await isSubscribed(userId);
 
-  if (subscribed) {
-    await bot.sendMessage(chatId, "✅ Подписка подтверждена", {
-      reply_markup: {
-        inline_keyboard: [
-          [
-            {
-              text: "PLAY SKATE",
-              web_app: { url: miniAppUrl }
-            }
+    if (subscribed) {
+      await bot.sendMessage(chatId, "✅ Подписка подтверждена", {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              {
+                text: "PLAY SKATE",
+                web_app: { url: miniAppUrl }
+              }
+            ]
           ]
-        ]
-      }
-    });
-  } else {
-    await bot.sendMessage(chatId, "Подпишись на канал:", {
-      reply_markup: {
-        inline_keyboard: [
-          [
-            {
-              text: "Подписаться",
-              url: "https://t.me/IMBASQUAD812"
-            }
-          ],
-          [
-            {
-              text: "Проверить подписку",
-              callback_data: "check"
-            }
+        }
+      });
+    } else {
+      await bot.sendMessage(chatId, "Подпишись на канал:", {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              {
+                text: "Подписаться",
+                url: "https://t.me/IMBASQUAD812"
+              }
+            ],
+            [
+              {
+                text: "Проверить подписку",
+                callback_data: "check"
+              }
+            ]
           ]
-        ]
-      }
-    });
+        }
+      });
+    }
+  } catch (err) {
+    console.error("/start error:", err?.response?.body || err?.message || err);
+
+    await bot.sendMessage(chatId, "⚠️ Ошибка. Попробуй ещё раз.");
   }
 });
 
@@ -154,7 +163,7 @@ bot.on("callback_query", async (query) => {
         await bot.sendMessage(chatId, "❌ Ты ещё не подписан");
       }
     } catch (err) {
-      console.error("callback_query error:", err?.message || err);
+      console.error("callback_query error:", err?.response?.body || err?.message || err);
 
       await bot.sendMessage(chatId, "⚠️ Ошибка проверки подписки. Попробуй ещё раз.");
     }
